@@ -21,13 +21,15 @@ slightly more dramatic than the situation strictly requires.
 
 ## Control Panel
 
-The useful knobs, sockets, and small negotiations with physics are:
+The main controls and routing settings are:
 
 - `Pitch CV`
 - `Tone CV`
 - `Thickness CV`
 - `Output L`
+- `Output L mode`
 - `Output R`
+- `Output R mode`
 - `Note`
 - `Fine Tune`
 - `Thickness`
@@ -117,7 +119,7 @@ The internal design is:
 - Slow independent drift tied to `Thickness`.
 - Triangle/saw blend tied to `Tone`.
 - Stereo output with add/replace modes.
-- A unique plugin GUID already set to `ThIk`.
+- Plugin GUID set to `ThIk`.
 
 The point is not to expose the orchestra pit. The point is to press a few
 controls and hear one pitch become wide, alive, and faintly convinced it is

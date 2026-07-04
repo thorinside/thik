@@ -143,3 +143,7 @@ scoring the final act of a film about voltage.
 - `SPEC.md`
 - `CONTEXT.md`
 - `docs/adr/`
+
+## License
+
+MIT. See `LICENSE`.

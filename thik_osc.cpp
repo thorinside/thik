@@ -271,6 +271,15 @@ static void renormaliseDrift(_thikOsc_DTC* d) {
     }
 }
 
+static inline void maybeRenormaliseDrift(_thikOsc_DTC* d) {
+    if (++d->renormCounter >= 1024) {
+        // The drift LFOs use cheap sin/cos recurrence; renormalise
+        // occasionally so roundoff never changes their modulation depth.
+        d->renormCounter = 0;
+        renormaliseDrift(d);
+    }
+}
+
 static inline float processVoice(VoiceState& voice,
                                  float dt,
                                  float triGain,
@@ -317,6 +326,8 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
     const float* pitchCvFrames = (pitchBus > 0) ? (busFrames + (pitchBus - 1) * numFrames) : NULL;
     const float* toneCvFrames = (toneBus > 0) ? (busFrames + (toneBus - 1) * numFrames) : NULL;
     const float* thicknessCvFrames = (thicknessBus > 0) ? (busFrames + (thicknessBus - 1) * numFrames) : NULL;
+    const bool hasPitchCv = pitchCvFrames != NULL;
+    const bool hasMacroCv = (toneCvFrames != NULL) || (thicknessCvFrames != NULL);
 
     float* outL = busFrames + (alg->v[kParamOutputL] - 1) * numFrames;
     float* outR = busFrames + (alg->v[kParamOutputR] - 1) * numFrames;
@@ -327,8 +338,60 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
     const float baseHzNoCv = 440.0f * fastExp2((baseNote - 69.0f) * (1.0f / 12.0f));
     const float invSampleRate = 1.0f / sampleRate;
 
+    // Most patches leave Tone CV and Thickness CV unassigned; keep their
+    // derived macro values out of the per-sample loop in that common case.
+    if (!hasMacroCv) {
+        const float tone = alg->toneKnob;
+        const float thickness = alg->thicknessKnob;
+        const float triGain = 0.92f - 0.55f * tone;
+        const float sawGain = 0.10f + 0.82f * tone;
+        const float toneNorm = 1.0f / (triGain + sawGain + 0.0001f);
+
+        const float detuneDepthCents = kMaxThicknessDetuneCents * thickness;
+        const float driftDepthCents = kMaxThicknessDriftCents * thickness;
+        const float sideWeight = thickness * (0.35f + 0.65f * thickness);
+        const float stereoWidth = 0.10f + (kMaxStereoWidth - 0.10f) * thickness;
+        const float weightSum = 1.0f + (float)(kNumVoices - 1) * sideWeight;
+        const float gainDrive = kOutputGain * (2.0f / weightSum) * kSoftClipDrive;
+
+        for (int i = 0; i < numFrames; ++i) {
+            const float baseHz = hasPitchCv
+                ? (baseHzNoCv * fastExp2(clampf(pitchCvFrames[i], -8.0f, 8.0f)))
+                : baseHzNoCv;
+
+            float sumL = 0.0f;
+            float sumR = 0.0f;
+
+            for (int v = 0; v < kNumVoices; ++v) {
+                VoiceState& voice = d->voices[v];
+                advanceDrift(voice);
+
+                const float cents = voice.detuneNorm * detuneDepthCents + voice.driftSin * driftDepthCents;
+                const float detuneMul = 1.0f + cents * kCentsToLinearRatioApprox;
+                const float dt = clampf(baseHz * detuneMul * invSampleRate, 0.0f, kMaxPhaseIncrement);
+                const float sample = processVoice(voice, dt, triGain, sawGain, toneNorm);
+                const float weight = (v == 0) ? 1.0f : sideWeight;
+                const float pan = voice.panNorm * stereoWidth;
+                const float leftGain = 0.5f * (1.0f - pan);
+                const float rightGain = 0.5f * (1.0f + pan);
+
+                sumL += sample * weight * leftGain;
+                sumR += sample * weight * rightGain;
+            }
+
+            const float sampleL = softClip(sumL * gainDrive) * kOutputVolts;
+            const float sampleR = softClip(sumR * gainDrive) * kOutputVolts;
+
+            outL[i] = replaceL ? sampleL : (outL[i] + sampleL);
+            outR[i] = replaceR ? sampleR : (outR[i] + sampleR);
+
+            maybeRenormaliseDrift(d);
+        }
+        return;
+    }
+
     for (int i = 0; i < numFrames; ++i) {
-        const float pitchCv = clampf(pitchCvFrames ? pitchCvFrames[i] : 0.0f, -8.0f, 8.0f);
+        const float pitchCv = hasPitchCv ? clampf(pitchCvFrames[i], -8.0f, 8.0f) : 0.0f;
         const float toneCv = clampf(toneCvFrames ? toneCvFrames[i] : 0.0f, -5.0f, 5.0f);
         const float thicknessCv = clampf(thicknessCvFrames ? thicknessCvFrames[i] : 0.0f, -5.0f, 5.0f);
         const float tone = clamp01(alg->toneKnob + toneCv * kMacroCvScale);
@@ -373,12 +436,7 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
         outL[i] = replaceL ? sampleL : (outL[i] + sampleL);
         outR[i] = replaceR ? sampleR : (outR[i] + sampleR);
 
-        if (++d->renormCounter >= 1024) {
-            // The drift LFOs use cheap sin/cos recurrence; renormalise
-            // occasionally so roundoff never changes their modulation depth.
-            d->renormCounter = 0;
-            renormaliseDrift(d);
-        }
+        maybeRenormaliseDrift(d);
     }
 }
 

@@ -106,20 +106,20 @@ struct VoiceState {
     float driftStep;
 };
 
-struct _lushOsc_DTC {
+struct _thikOsc_DTC {
     VoiceState voices[kNumVoices];
     int renormCounter;
 };
 
-struct _lushOscAlgorithm : public _NT_algorithm {
-    explicit _lushOscAlgorithm(_lushOsc_DTC* d)
+struct _thikOscAlgorithm : public _NT_algorithm {
+    explicit _thikOscAlgorithm(_thikOsc_DTC* d)
         : dtc(d),
           note((float)kDefaultNote),
           fineCents((float)kDefaultFineTune),
           thicknessKnob((float)kDefaultThickness * 0.0001f),
           toneKnob((float)kDefaultTone * 0.0001f) {}
 
-    _lushOsc_DTC* dtc;
+    _thikOsc_DTC* dtc;
     float note;
     float fineCents;
     float thicknessKnob;
@@ -189,7 +189,7 @@ static const _NT_parameterPages parameterPages = {
     .pages = pages,
 };
 
-static void initialiseVoices(_lushOsc_DTC* d, float sampleRate) {
+static void initialiseVoices(_thikOsc_DTC* d, float sampleRate) {
     static const float detunes[kNumVoices] = {
         0.0f, -0.18f, 0.18f, -0.38f, 0.38f, -0.62f, 0.62f, -1.0f, 1.0f,
     };
@@ -221,24 +221,24 @@ static void initialiseVoices(_lushOsc_DTC* d, float sampleRate) {
 
 static void calculateRequirements(_NT_algorithmRequirements& req, const int32_t*) {
     req.numParameters = NS_ARRAY_SIZE(parameters);
-    req.sram = sizeof(_lushOscAlgorithm);
+    req.sram = sizeof(_thikOscAlgorithm);
     req.dram = 0;
-    req.dtc = sizeof(_lushOsc_DTC);
+    req.dtc = sizeof(_thikOsc_DTC);
     req.itc = 0;
 }
 
 static _NT_algorithm* construct(const _NT_algorithmMemoryPtrs& ptrs,
                                 const _NT_algorithmRequirements&,
                                 const int32_t*) {
-    _lushOsc_DTC* d = new (ptrs.dtc) _lushOsc_DTC;
-    _lushOscAlgorithm* alg = new (ptrs.sram) _lushOscAlgorithm(d);
+    _thikOsc_DTC* d = new (ptrs.dtc) _thikOsc_DTC;
+    _thikOscAlgorithm* alg = new (ptrs.sram) _thikOscAlgorithm(d);
     alg->parameters = parameters;
     alg->parameterPages = &parameterPages;
     initialiseVoices(d, (float)NT_globals.sampleRate);
     return alg;
 }
 
-static void syncCachedParams(_lushOscAlgorithm* alg) {
+static void syncCachedParams(_thikOscAlgorithm* alg) {
     // Preset loading restores alg->v, but hosts do not always call
     // parameterChanged() for every parameter afterwards. Keep these cached
     // floats synchronized from the authoritative parameter array.
@@ -249,7 +249,7 @@ static void syncCachedParams(_lushOscAlgorithm* alg) {
 }
 
 static void parameterChanged(_NT_algorithm* self, int) {
-    syncCachedParams((_lushOscAlgorithm*)self);
+    syncCachedParams((_thikOscAlgorithm*)self);
 }
 
 static inline void advanceDrift(VoiceState& voice) {
@@ -259,7 +259,7 @@ static inline void advanceDrift(VoiceState& voice) {
     voice.driftCos = oldCos - voice.driftStep * oldSin;
 }
 
-static void renormaliseDrift(_lushOsc_DTC* d) {
+static void renormaliseDrift(_thikOsc_DTC* d) {
     for (int v = 1; v < kNumVoices; ++v) {
         float mag = d->voices[v].driftSin * d->voices[v].driftSin
             + d->voices[v].driftCos * d->voices[v].driftCos;
@@ -304,8 +304,8 @@ static inline float processVoice(VoiceState& voice,
 }
 
 static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
-    _lushOscAlgorithm* alg = (_lushOscAlgorithm*)self;
-    _lushOsc_DTC* d = alg->dtc;
+    _thikOscAlgorithm* alg = (_thikOscAlgorithm*)self;
+    _thikOsc_DTC* d = alg->dtc;
     const int numFrames = numFramesBy4 * 4;
     const float sampleRate = (NT_globals.sampleRate > 0) ? (float)NT_globals.sampleRate : 48000.0f;
 
@@ -384,7 +384,7 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
 
 static const _NT_factory factory = {
     .guid = NT_MULTICHAR('T', 'h', 'I', 'k'),
-    .name = "Lush Oscillator",
+    .name = "Thik Oscillator",
     .description = "Minimal organic stereo unison oscillator",
     .numSpecifications = 0,
     .specifications = NULL,

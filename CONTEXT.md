@@ -1,10 +1,10 @@
-# Disting NT Lush Oscillator
+# Disting NT Thik Oscillator
 
-A minimal disting NT oscillator plugin whose purpose is to produce one thick, lush, pitched oscillator sound.
+A minimal disting NT oscillator plugin whose purpose is to produce one thick, pitched oscillator sound.
 
 ## Language
 
-**Lush oscillator**:
+**Thik oscillator**:
 A single-pitch oscillator whose sound is made thick by a swarm of internally detuned and drifting voices. It should feel like one huge oscillator, not a managed set of separate oscillators.
 
 **Oscillator bank**:
@@ -17,7 +17,7 @@ The core waveform identity: warmer than pure saw, richer than pure triangle. _Av
 A voice cluster that is clearly thick and alive while preserving a strong perceived pitch. _Avoid_: pitch fog, chord cloud, huge ensemble wash.
 
 **Thickness**:
-A single macro control that increases the apparent lushness of the swarm by coordinating voice prominence, detune width, and organic movement. _Avoid_: separate voice-count editing.
+A single macro control that increases the apparent density of the swarm by coordinating voice prominence, detune width, and organic movement. _Avoid_: separate voice-count editing.
 
 **Always stereo**:
 The oscillator presents left and right outputs as part of its identity; stereo spread is not an optional mode. _Avoid_: mono/stereo boolean.

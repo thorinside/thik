@@ -1,6 +1,6 @@
 # Always stereo output
 
-The oscillator will be a stereo instrument by design, with separate left and right output parameters. Stereo spread is part of the lush swarm identity, so the plugin will not expose a mono/stereo boolean or mode switch.
+The oscillator will be a stereo instrument by design, with separate left and right output parameters. Stereo spread is part of the Thik swarm identity, so the plugin will not expose a mono/stereo boolean or mode switch.
 
 **Considered options**: mono output, always stereo output, mono/stereo selectable, dual mono plus stereo pair.
 

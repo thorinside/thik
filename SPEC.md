@@ -1,4 +1,4 @@
-# Disting NT Lush Oscillator Specification
+# Disting NT Thik Oscillator Specification
 
 ## Status
 
@@ -6,7 +6,7 @@ Implemented. Builds for hardware and native test targets; pending hands-on nt_em
 
 ## Goal
 
-Build a minimal Expert Sleepers disting NT custom C++ plugin that behaves as one very thick, lush, pitched oscillator. It should sound like a small organic bank of oscillators while remaining simple: one perceived pitch, stereo output, and two main sound macros.
+Build a minimal Expert Sleepers disting NT custom C++ plugin that behaves as one very thick, pitched oscillator. It should sound like a small organic bank of oscillators while remaining simple: one perceived pitch, stereo output, and two main sound macros.
 
 ## Product Boundary
 
@@ -33,7 +33,7 @@ Recommended order:
 5. `Output R` — audio output with output mode.
 6. `Note` — base pitch as MIDI note.
 7. `Fine Tune` — small pitch offset.
-8. `Thickness` — macro controlling lushness, scaled at 0.01% resolution.
+8. `Thickness` — macro controlling swarm thickness, scaled at 0.01% resolution.
 9. `Tone` — macro controlling darker/rounder to brighter/sawier timbre, scaled at 0.01% resolution.
 
 No mono/stereo boolean. No separate Drift, Voice Count, Detune, Spread, Shape, Scale, or Chord controls.
@@ -114,7 +114,7 @@ Follow disting NT plugin conventions:
 - Produces a stereo pitched oscillator sound without requiring input audio.
 - `Note` produces sound standalone without Pitch CV.
 - `Pitch CV` tracks musically as 1V/oct around the selected note.
-- `Thickness` audibly increases lushness while preserving pitch.
+- `Thickness` audibly increases swarm thickness while preserving pitch.
 - `Tone` audibly moves between darker/rounder and brighter/sawier variants of the same identity.
 - `Tone CV` and `Thickness CV` modulate their corresponding macros.
 - Stereo output feels wide but remains usable when summed.

@@ -1,4 +1,4 @@
-# Lush Oscillator
+# Thik Oscillator
 
 A minimal organic stereo unison oscillator for the Expert Sleepers disting NT.
 
@@ -39,13 +39,13 @@ git submodule update --init --recursive
 Hardware object for disting NT:
 
 ```sh
-make hardware        # plugins/lush_osc.o
+make hardware        # plugins/thik_osc.o
 ```
 
 Native plugin for `nt_emu`/desktop testing:
 
 ```sh
-make test            # plugins/lush_osc.dylib on macOS
+make test            # plugins/thik_osc.dylib on macOS
 ```
 
 Both:
@@ -75,7 +75,7 @@ Clean generated outputs:
 make clean
 ```
 
-`NT_globals` / `_NT_globals` is expected to remain undefined in plugin outputs because it is provided by the disting NT host/API environment. Any other undefined symbol should fail `make check`.
+`NT_globals` / `_NT_globals` is expected to remain undefined in plugin outputs because it is provided by the disting NT host/API environment. The hardware object may also retain runtime-provided libm symbols such as `sinf`, `cosf`, and `sqrtf`; any other undefined symbol should fail `make check`.
 
 Generated outputs are intentionally ignored by git:
 

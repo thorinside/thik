@@ -1,5 +1,5 @@
-PLUGIN_NAME = lush_osc
-SOURCES = lush_osc.cpp
+PLUGIN_NAME = thik_osc
+SOURCES = thik_osc.cpp
 
 UNAME_S := $(shell uname -s)
 TARGET ?= hardware

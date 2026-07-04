@@ -1,0 +1,58 @@
+name: Build and Release Thik Oscillator
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install ARM toolchain
+        run: |
+          brew update
+          brew install --cask gcc-arm-embedded
+
+      - name: Verify toolchain
+        run: |
+          arm-none-eabi-c++ --version
+          arm-none-eabi-nm --version
+
+      - name: Build and verify plugin
+        run: |
+          make verify
+
+      - name: Prepare release archive
+        run: |
+          mkdir -p release/programs/plug-ins
+          cp plugins/thik_osc.o release/programs/plug-ins/
+          cd release
+          zip -r ../thik_osc-plugin.zip programs
+          cd ..
+          unzip -l thik_osc-plugin.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: thik_osc-plugin
+          path: thik_osc-plugin.zip
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: thik_osc-plugin.zip
+          generate_release_notes: true

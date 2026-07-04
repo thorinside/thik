@@ -106,6 +106,19 @@ Generated outputs are intentionally ignored by git:
 - `build/`
 - `plugins/`
 
+## GitHub Release Workflow
+
+`.github/workflows/release.yaml` builds the plugin on `macos-latest` with the
+ARM toolchain, runs `make verify`, and packages the hardware object as:
+
+```text
+programs/plug-ins/thik_osc.o
+```
+
+The workflow uploads `thik_osc-plugin.zip` as a build artifact on manual runs.
+When pushed with a `v*` tag, it also creates a GitHub Release with that zip
+attached.
+
 ## Design Notes
 
 Thik has a deliberately small brief: one enormous-feeling oscillator, two main

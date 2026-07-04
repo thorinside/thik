@@ -27,6 +27,7 @@ static const int kDefaultNote = 60;
 static const int kDefaultFineTune = 0;
 static const int kDefaultThickness = 5500;
 static const int kDefaultTone = 4500;
+static const int kDefaultMidiChannel = 0;
 
 static inline float clamp01(float x) {
     if (x < 0.0f) return 0.0f;
@@ -151,16 +152,22 @@ struct _thikOsc_DTC {
 struct _thikOscAlgorithm : public _NT_algorithm {
     explicit _thikOscAlgorithm(_thikOsc_DTC* d)
         : dtc(d),
-          note((float)kDefaultNote),
+          pitchNote((float)kDefaultNote),
           fineCents((float)kDefaultFineTune),
           thicknessKnob((float)kDefaultThickness * 0.0001f),
-          toneKnob((float)kDefaultTone * 0.0001f) {}
+          toneKnob((float)kDefaultTone * 0.0001f),
+          midiChannel(kDefaultMidiChannel),
+          midiNote(kDefaultNote),
+          midiNoteActive(false) {}
 
     _thikOsc_DTC* dtc;
-    float note;
+    float pitchNote;
     float fineCents;
     float thicknessKnob;
     float toneKnob;
+    int midiChannel;
+    int midiNote;
+    bool midiNoteActive;
 };
 
 enum {
@@ -173,12 +180,22 @@ enum {
     kParamOutputR,
     kParamOutputRMode,
 
-    kParamNote,
+    kParamPitch,
     kParamFineTune,
     kParamThickness,
     kParamTone,
+    kParamMidiChannel,
 
     kNumParams
+};
+
+static char const* const midiChannelStrings[] = {
+    "Omni",
+    "1", "2", "3", "4",
+    "5", "6", "7", "8",
+    "9", "10", "11", "12",
+    "13", "14", "15", "16",
+    NULL,
 };
 
 static const _NT_parameter parameters[] = {
@@ -189,17 +206,19 @@ static const _NT_parameter parameters[] = {
     NT_PARAMETER_AUDIO_OUTPUT_WITH_MODE("Output L", 1, 13)
     NT_PARAMETER_AUDIO_OUTPUT_WITH_MODE("Output R", 1, 14)
 
-    { .name = "Note", .min = 0, .max = 127, .def = kDefaultNote, .unit = kNT_unitMIDINote, .scaling = 0, .enumStrings = NULL },
+    { .name = "Pitch", .min = 0, .max = 127, .def = kDefaultNote, .unit = kNT_unitMIDINote, .scaling = 0, .enumStrings = NULL },
     { .name = "Fine Tune", .min = -100, .max = 100, .def = kDefaultFineTune, .unit = kNT_unitCents, .scaling = 0, .enumStrings = NULL },
     { .name = "Thickness", .min = 0, .max = 10000, .def = kDefaultThickness, .unit = kNT_unitPercent, .scaling = kNT_scaling100, .enumStrings = NULL },
     { .name = "Tone", .min = 0, .max = 10000, .def = kDefaultTone, .unit = kNT_unitPercent, .scaling = kNT_scaling100, .enumStrings = NULL },
+    { .name = "MIDI Ch", .min = 0, .max = 16, .def = kDefaultMidiChannel, .unit = kNT_unitEnum, .scaling = 0, .enumStrings = midiChannelStrings },
 };
 
 static const uint8_t pageMain[] = {
-    kParamNote,
+    kParamPitch,
     kParamFineTune,
     kParamThickness,
     kParamTone,
+    kParamMidiChannel,
 };
 
 static const uint8_t pageCV[] = {
@@ -279,10 +298,11 @@ static void syncCachedParams(_thikOscAlgorithm* alg) {
     // Preset loading restores alg->v, but hosts do not always call
     // parameterChanged() for every parameter afterwards. Keep these cached
     // floats synchronized from the authoritative parameter array.
-    alg->note = (float)alg->v[kParamNote];
+    alg->pitchNote = (float)alg->v[kParamPitch];
     alg->fineCents = (float)alg->v[kParamFineTune];
     alg->thicknessKnob = clamp01((float)alg->v[kParamThickness] * 0.0001f);
     alg->toneKnob = clamp01((float)alg->v[kParamTone] * 0.0001f);
+    alg->midiChannel = alg->v[kParamMidiChannel];
 }
 
 static void parameterChanged(_NT_algorithm* self, int) {
@@ -315,6 +335,10 @@ static inline void maybeRenormaliseDrift(_thikOsc_DTC* d) {
         d->renormCounter = 0;
         renormaliseDrift(d);
     }
+}
+
+static inline float activePitchNote(const _thikOscAlgorithm* alg) {
+    return alg->midiNoteActive ? (float)alg->midiNote : alg->pitchNote;
 }
 
 static inline float processVoice(VoiceState& voice,
@@ -372,7 +396,7 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
     const bool replaceL = alg->v[kParamOutputLMode] != 0;
     const bool replaceR = alg->v[kParamOutputRMode] != 0;
 
-    const float baseNote = alg->note + alg->fineCents * 0.01f;
+    const float baseNote = activePitchNote(alg) + alg->fineCents * 0.01f;
     const float baseHzNoCv = 440.0f * fastExp2((baseNote - 69.0f) * (1.0f / 12.0f));
     const float invSampleRate = 1.0f / sampleRate;
 
@@ -493,6 +517,26 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
     }
 }
 
+static void midiMessage(_NT_algorithm* self, uint8_t byte0, uint8_t byte1, uint8_t byte2) {
+    _thikOscAlgorithm* alg = (_thikOscAlgorithm*)self;
+    syncCachedParams(alg);
+
+    const uint8_t type = byte0 & 0xf0;
+    if (type != 0x80 && type != 0x90) return;
+
+    const int channel = (byte0 & 0x0f) + 1;
+    if (alg->midiChannel != 0 && alg->midiChannel != channel) return;
+
+    const int note = (byte1 <= 127) ? byte1 : 127;
+    const bool noteOn = (type == 0x90 && byte2 != 0);
+    if (noteOn) {
+        alg->midiNote = note;
+        alg->midiNoteActive = true;
+    } else if (alg->midiNoteActive && alg->midiNote == note) {
+        alg->midiNoteActive = false;
+    }
+}
+
 static const _NT_factory factory = {
     .guid = NT_MULTICHAR('T', 'h', 'I', 'k'),
     .name = "Thik Oscillator",
@@ -507,7 +551,7 @@ static const _NT_factory factory = {
     .step = step,
     .draw = NULL,
     .midiRealtime = NULL,
-    .midiMessage = NULL,
+    .midiMessage = midiMessage,
     .tags = kNT_tagInstrument,
     .hasCustomUi = NULL,
     .customUi = NULL,

@@ -23,10 +23,13 @@ A single macro control that increases the apparent density of the swarm by coord
 The oscillator presents left and right outputs as part of its identity; stereo spread is not an optional mode. _Avoid_: mono/stereo boolean.
 
 **Pitch CV**:
-The external pitch control input, interpreted as 1V/oct around the selected note and fine tune. _Avoid_: exposing a V/Oct amount control unless later required.
+The external pitch control input, interpreted as a 1V/oct offset around the active MIDI pitch or the fallback Pitch parameter plus fine tune. _Avoid_: exposing a V/Oct amount control unless later required.
 
-**Note**:
-The base musical pitch used when no pitch CV is patched, and the anchor pitch when CV is patched. _Avoid_: raw frequency as the main pitch control.
+**Pitch**:
+The fallback musical pitch used when no MIDI note is active, and the anchor pitch when only CV is patched. _Avoid_: raw frequency as the main pitch control.
+
+**MIDI Ch**:
+The MIDI note input filter: Omni by default, or one selected MIDI channel when needed. _Avoid_: adding a full MIDI performance engine or envelope unless the project is re-scoped.
 
 **Fine Tune**:
 A small pitch offset around the selected note for calibration or musical beating.

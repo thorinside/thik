@@ -14,6 +14,7 @@ slightly more dramatic than the situation strictly requires.
 - Produces one pitched organic swarm, not a chord, scale, or interval engine.
 - Runs 9 internal voices around a single perceived pitch.
 - Uses a local PolyBLEP triangle/saw voice engine.
+- Accepts MIDI note input, with `MIDI Ch` set to Omni by default.
 - Lets `Thickness` increase detune, drift, side-voice level, and stereo width.
 - Lets `Tone` move from darker and rounder to brighter and sawier.
 - Remains always stereo, because some waveforms deserve a left wing and a right
@@ -30,15 +31,18 @@ The main controls and routing settings are:
 - `Output L mode`
 - `Output R`
 - `Output R mode`
-- `Note`
+- `Pitch`
 - `Fine Tune`
 - `Thickness`
 - `Tone`
+- `MIDI Ch`
 
-`Note` sets the anchor pitch. `Pitch CV` then does the 1V/oct thing around it,
-as modular civilization requires. `Tone` changes the waveform character.
-`Thickness` tells the internal swarm how much to behave like a disciplined
-oscillator section and how much to behave like a dramatic laboratory choir.
+`Pitch` sets the fallback pitch. Incoming MIDI note-on messages override that
+fallback while a note is active, and `Pitch CV` still does the 1V/oct thing on
+top, as modular civilization requires. `MIDI Ch` can listen to Omni or one
+specific MIDI channel. `Tone` changes the waveform character. `Thickness` tells
+the internal swarm how much to behave like a disciplined oscillator section and
+how much to behave like a dramatic laboratory choir.
 
 ## Prerequisites
 
@@ -90,6 +94,12 @@ RMS consistency check across `Thickness`, including full `Tone`:
 make level-test
 ```
 
+MIDI pitch handling check:
+
+```sh
+make midi-test
+```
+
 Full local release verification:
 
 ```sh
@@ -137,6 +147,7 @@ The internal design is:
 - Deterministic detune and pan layout.
 - Slow independent drift tied to `Thickness`.
 - Triangle/saw blend tied to `Tone`.
+- MIDI note-on/off pitch override with Omni or channel-filtered input.
 - Stereo output with add/replace modes.
 - Plugin GUID set to `ThIk`.
 

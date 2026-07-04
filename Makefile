@@ -1,6 +1,7 @@
 PLUGIN_NAME = thik_osc
 SOURCES = thik_osc.cpp
 LEVEL_TEST = build/rms_consistency
+MIDI_TEST = build/midi_pitch
 
 UNAME_S := $(shell uname -s)
 TARGET ?= hardware
@@ -99,6 +100,13 @@ $(LEVEL_TEST): tests/rms_consistency.cpp $(SOURCES)
 level-test: $(LEVEL_TEST)
 	@$(LEVEL_TEST)
 
+$(MIDI_TEST): tests/midi_pitch.cpp $(SOURCES)
+	@mkdir -p build
+	$(HOST_CXX) $(HOST_CXXFLAGS) $(INCLUDES) -o $@ $<
+
+midi-test: $(MIDI_TEST)
+	@$(MIDI_TEST)
+
 verify:
 	@$(MAKE) clean
 	@$(MAKE) both
@@ -107,8 +115,9 @@ verify:
 	@$(MAKE) TARGET=hardware size
 	@$(MAKE) TARGET=test size
 	@$(MAKE) level-test
+	@$(MAKE) midi-test
 
 clean:
 	rm -rf build $(OUTPUT_DIR)
 
-.PHONY: all hardware test both check size level-test verify clean
+.PHONY: all hardware test both check size level-test midi-test verify clean

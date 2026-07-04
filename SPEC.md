@@ -26,15 +26,16 @@ Reject feature creep toward scales, chords, interval modes, freeze, warp, twist,
 
 Recommended order:
 
-1. `Pitch CV` — CV input, 1V/oct around `Note` + `Fine Tune`.
+1. `Pitch CV` — CV input, 1V/oct around active MIDI pitch or `Pitch` + `Fine Tune`.
 2. `Tone CV` — CV input for `Tone` modulation.
 3. `Thickness CV` — CV input for `Thickness` modulation.
 4. `Output L` — audio output with output mode.
 5. `Output R` — audio output with output mode.
-6. `Note` — base pitch as MIDI note.
+6. `Pitch` — fallback pitch as MIDI note when no MIDI note is active.
 7. `Fine Tune` — small pitch offset.
 8. `Thickness` — macro controlling swarm thickness, scaled at 0.01% resolution.
 9. `Tone` — macro controlling darker/rounder to brighter/sawier timbre, scaled at 0.01% resolution.
+10. `MIDI Ch` — MIDI input channel, with Omni available.
 
 No mono/stereo boolean. No separate Drift, Voice Count, Detune, Spread, Shape, Scale, or Chord controls.
 
@@ -80,11 +81,18 @@ Use a local lightweight oscillator engine:
 
 Pitch should be computed from:
 
-- `Note` as the anchor MIDI note.
+- Incoming MIDI note-on as the active pitch when present.
+- `Pitch` as the fallback anchor MIDI note.
 - `Fine Tune` as a small semitone or cent offset.
-- `Pitch CV` as 1V/oct when patched.
+- `Pitch CV` as 1V/oct offset when patched.
 
 The oscillator must remain clearly pitched at high Thickness.
+
+### MIDI Handling
+
+MIDI note-on should set the active oscillator pitch. Note-on with velocity 0 and
+matching note-off should release the active MIDI pitch, returning the oscillator
+to the `Pitch` parameter. `MIDI Ch` should allow Omni or a specific MIDI channel.
 
 ### CV Macro Handling
 
@@ -112,8 +120,9 @@ Follow disting NT plugin conventions:
 - Builds as a disting NT custom plugin object.
 - Exposes only the approved parameters.
 - Produces a stereo pitched oscillator sound without requiring input audio.
-- `Note` produces sound standalone without Pitch CV.
-- `Pitch CV` tracks musically as 1V/oct around the selected note.
+- `Pitch` produces sound standalone without Pitch CV or MIDI.
+- MIDI note-on changes the active pitch, with channel filtering via `MIDI Ch`.
+- `Pitch CV` tracks musically as 1V/oct around the active or fallback pitch.
 - `Thickness` audibly increases swarm thickness while preserving pitch.
 - `Tone` audibly moves between darker/rounder and brighter/sawier variants of the same identity.
 - `Tone CV` and `Thickness CV` modulate their corresponding macros.

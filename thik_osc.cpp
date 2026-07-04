@@ -289,11 +289,12 @@ static inline float processVoice(VoiceState& voice,
     if (!(phase >= 0.0f && phase < 1.0f)) phase = 0.0f;
     voice.tri = finiteOr(voice.tri, 0.0f);
 
+    const float edgeBlep = polyBlep(phase, dt);
     float saw = 2.0f * phase - 1.0f;
-    saw -= polyBlep(phase, dt);
+    saw -= edgeBlep;
 
     float square = (phase < 0.5f) ? 1.0f : -1.0f;
-    square += polyBlep(phase, dt);
+    square += edgeBlep;
     float halfPhase = phase + 0.5f;
     if (halfPhase >= 1.0f) halfPhase -= 1.0f;
     square -= polyBlep(halfPhase, dt);
@@ -411,7 +412,22 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
         float sumL = 0.0f;
         float sumR = 0.0f;
 
-        for (int v = 0; v < kNumVoices; ++v) {
+        // Voice 0 is the centered root voice: no detune, pan, or drift step.
+        // Keep the side-voice loop branch-free without changing the swarm shape.
+        VoiceState& rootVoice = d->voices[0];
+        advanceDrift(rootVoice);
+        const float rootCents = rootVoice.detuneNorm * detuneDepthCents + rootVoice.driftSin * driftDepthCents;
+        const float rootDetuneMul = 1.0f + rootCents * kCentsToLinearRatioApprox;
+        const float rootDt = clampf(baseHz * rootDetuneMul * invSampleRate, 0.0f, kMaxPhaseIncrement);
+        const float rootSample = processVoice(rootVoice, rootDt, triGain, sawGain, toneNorm);
+        const float rootWeight = 1.0f;
+        const float rootPan = rootVoice.panNorm * stereoWidth;
+        const float rootLeftGain = 0.5f * (1.0f - rootPan);
+        const float rootRightGain = 0.5f * (1.0f + rootPan);
+        sumL += rootSample * rootWeight * rootLeftGain;
+        sumR += rootSample * rootWeight * rootRightGain;
+
+        for (int v = 1; v < kNumVoices; ++v) {
             VoiceState& voice = d->voices[v];
             advanceDrift(voice);
 
@@ -420,13 +436,12 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
             float dt = clampf(baseHz * detuneMul * invSampleRate, 0.0f, kMaxPhaseIncrement);
             float sample = processVoice(voice, dt, triGain, sawGain, toneNorm);
 
-            float weight = (v == 0) ? 1.0f : sideWeight;
             float pan = voice.panNorm * stereoWidth;
             float leftGain = 0.5f * (1.0f - pan);
             float rightGain = 0.5f * (1.0f + pan);
 
-            sumL += sample * weight * leftGain;
-            sumR += sample * weight * rightGain;
+            sumL += sample * sideWeight * leftGain;
+            sumR += sample * sideWeight * rightGain;
         }
 
         float gain = kOutputGain * (2.0f / weightSum);

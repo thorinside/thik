@@ -32,7 +32,7 @@ jobs:
 
       - name: Build and verify plugin
         run: |
-          make verify
+          make ci-verify
 
       - name: Prepare release archive
         run: |

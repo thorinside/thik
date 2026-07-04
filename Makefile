@@ -117,7 +117,15 @@ verify:
 	@$(MAKE) level-test
 	@$(MAKE) midi-test
 
+ci-verify:
+	@$(MAKE) clean
+	@$(MAKE) hardware
+	@$(MAKE) TARGET=hardware check
+	@$(MAKE) TARGET=hardware size
+	@$(MAKE) level-test
+	@$(MAKE) midi-test
+
 clean:
 	rm -rf build $(OUTPUT_DIR)
 
-.PHONY: all hardware test both check size level-test midi-test verify clean
+.PHONY: all hardware test both check size level-test midi-test verify ci-verify clean

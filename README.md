@@ -106,6 +106,12 @@ Full local release verification:
 make verify
 ```
 
+Hardware-only CI/release verification:
+
+```sh
+make ci-verify
+```
+
 Clean generated outputs:
 
 ```sh

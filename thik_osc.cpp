@@ -19,6 +19,9 @@ static const float kOutputGain = 4.35f;
 static const float kSoftClipDrive = 0.22f;
 static const float kOutputVolts = 5.0f;
 static const float kMaxPhaseIncrement = 0.45f;
+static const float kMinThicknessLevelTrim = 0.43f;
+static const float kThicknessLevelTrimRise = 3.5f;
+static const float kMaxThicknessLevelLift = 0.14f;
 static const int kNumVoices = 9;
 static const int kDefaultNote = 60;
 static const int kDefaultFineTune = 0;
@@ -94,6 +97,22 @@ static inline float fastExp2(float x) {
 static inline float softClip(float x) {
     x = clampf(x, -4.0f, 4.0f);
     return x / (1.0f + 0.28f * fastAbs(x));
+}
+
+static inline float smoothstep01(float x) {
+    x = clamp01(x);
+    return x * x * (3.0f - 2.0f * x);
+}
+
+static inline float thicknessLevelTrim(float thickness) {
+    // The coherent-sum gain compensation over-boosts the root-only case and
+    // under-feeds the decorrelated wide swarm. This trims the low end and gives
+    // the high end a small lift so measured RMS stays steady across Thickness.
+    const float lowTrim = kMinThicknessLevelTrim
+        + (1.0f - kMinThicknessLevelTrim) * clamp01(thickness * kThicknessLevelTrimRise);
+    const float highLift = 1.0f
+        + kMaxThicknessLevelLift * smoothstep01((thickness - 0.25f) * 2.0f);
+    return lowTrim * highLift;
 }
 
 struct VoiceState {
@@ -353,7 +372,8 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
         const float sideWeight = thickness * (0.35f + 0.65f * thickness);
         const float stereoWidth = 0.10f + (kMaxStereoWidth - 0.10f) * thickness;
         const float weightSum = 1.0f + (float)(kNumVoices - 1) * sideWeight;
-        const float gainDrive = kOutputGain * (2.0f / weightSum) * kSoftClipDrive;
+        const float gainDrive = kOutputGain * (2.0f / weightSum)
+            * thicknessLevelTrim(thickness) * kSoftClipDrive;
 
         for (int i = 0; i < numFrames; ++i) {
             const float baseHz = hasPitchCv
@@ -444,7 +464,7 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
             sumR += sample * sideWeight * rightGain;
         }
 
-        float gain = kOutputGain * (2.0f / weightSum);
+        float gain = kOutputGain * (2.0f / weightSum) * thicknessLevelTrim(thickness);
         float sampleL = softClip(sumL * gain * kSoftClipDrive) * kOutputVolts;
         float sampleR = softClip(sumR * gain * kSoftClipDrive) * kOutputVolts;
 

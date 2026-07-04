@@ -1,9 +1,12 @@
 PLUGIN_NAME = thik_osc
 SOURCES = thik_osc.cpp
+LEVEL_TEST = build/rms_consistency
 
 UNAME_S := $(shell uname -s)
 TARGET ?= hardware
 API_DIR ?= distingNT_API
+HOST_CXX ?= c++
+HOST_CXXFLAGS = -std=c++11 -O3 -ffast-math -Wall -Wextra
 
 ifeq ($(TARGET),hardware)
     CXX = arm-none-eabi-c++
@@ -89,6 +92,13 @@ check: $(OUTPUT)
 size: $(OUTPUT)
 	@$(SIZE_CMD)
 
+$(LEVEL_TEST): tests/rms_consistency.cpp $(SOURCES)
+	@mkdir -p build
+	$(HOST_CXX) $(HOST_CXXFLAGS) $(INCLUDES) -o $@ $<
+
+level-test: $(LEVEL_TEST)
+	@$(LEVEL_TEST)
+
 verify:
 	@$(MAKE) clean
 	@$(MAKE) both
@@ -96,8 +106,9 @@ verify:
 	@$(MAKE) TARGET=test check
 	@$(MAKE) TARGET=hardware size
 	@$(MAKE) TARGET=test size
+	@$(MAKE) level-test
 
 clean:
 	rm -rf build $(OUTPUT_DIR)
 
-.PHONY: all hardware test both check size verify clean
+.PHONY: all hardware test both check size level-test verify clean

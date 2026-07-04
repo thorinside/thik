@@ -104,15 +104,33 @@ static inline float smoothstep01(float x) {
     return x * x * (3.0f - 2.0f * x);
 }
 
+static inline float thicknessCurveCorrection(float thickness) {
+    static const float correction[] = {
+        1.000f, 0.933f, 0.897f, 0.910f, 0.899f,
+        0.887f, 0.912f, 0.938f, 0.996f, 1.054f,
+        1.076f, 1.097f, 1.086f, 1.075f, 1.053f,
+        1.031f, 1.034f, 1.036f, 1.030f, 1.024f,
+        1.019f,
+    };
+
+    thickness = clamp01(thickness);
+    const float tablePosition = thickness * 20.0f;
+    const int index = (int)tablePosition;
+    if (index >= (int)NS_ARRAY_SIZE(correction) - 1) return correction[NS_ARRAY_SIZE(correction) - 1];
+    const float frac = tablePosition - (float)index;
+    return correction[index] + (correction[index + 1] - correction[index]) * frac;
+}
+
 static inline float thicknessLevelTrim(float thickness) {
-    // The coherent-sum gain compensation over-boosts the root-only case and
-    // under-feeds the decorrelated wide swarm. This trims the low end and gives
-    // the high end a small lift so measured RMS stays steady across Thickness.
+    // Coherent voices add by amplitude, while the wider swarm increasingly adds
+    // by power. Keep the original root trim, then flatten the measured RMS
+    // curve so Thickness changes size and motion without acting like a volume
+    // control.
     const float lowTrim = kMinThicknessLevelTrim
         + (1.0f - kMinThicknessLevelTrim) * clamp01(thickness * kThicknessLevelTrimRise);
     const float highLift = 1.0f
         + kMaxThicknessLevelLift * smoothstep01((thickness - 0.25f) * 2.0f);
-    return lowTrim * highLift;
+    return lowTrim * highLift * thicknessCurveCorrection(thickness);
 }
 
 struct VoiceState {

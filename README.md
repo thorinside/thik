@@ -84,6 +84,12 @@ make size
 make TARGET=test size
 ```
 
+RMS consistency check across `Thickness`, including full `Tone`:
+
+```sh
+make level-test
+```
+
 Full local release verification:
 
 ```sh

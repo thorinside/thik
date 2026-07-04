@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-and-release:
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
@@ -21,19 +21,18 @@ jobs:
           fetch-depth: 0
 
       - name: Install ARM toolchain
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew install --cask gcc-arm-embedded
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi zip unzip
 
       - name: Verify toolchain
         run: |
-          arm-none-eabi-c++ --version
+          arm-none-eabi-g++ --version
           arm-none-eabi-nm --version
 
       - name: Build and verify plugin
         run: |
-          make ci-verify
+          make ci-verify CXX=arm-none-eabi-g++
 
       - name: Prepare release archive
         run: |

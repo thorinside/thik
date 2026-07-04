@@ -235,9 +235,9 @@ static const uint8_t pageRouting[] = {
 };
 
 static const _NT_parameterPage pages[] = {
-    { .name = "Main", .numParams = NS_ARRAY_SIZE(pageMain), .params = pageMain },
-    { .name = "CV", .numParams = NS_ARRAY_SIZE(pageCV), .params = pageCV },
-    { .name = "Routing", .numParams = NS_ARRAY_SIZE(pageRouting), .params = pageRouting },
+    { .name = "Main", .numParams = NS_ARRAY_SIZE(pageMain), .group = 0, .unused = { 0, 0 }, .params = pageMain },
+    { .name = "CV", .numParams = NS_ARRAY_SIZE(pageCV), .group = 0, .unused = { 0, 0 }, .params = pageCV },
+    { .name = "Routing", .numParams = NS_ARRAY_SIZE(pageRouting), .group = 0, .unused = { 0, 0 }, .params = pageRouting },
 };
 
 static const _NT_parameterPages parameterPages = {

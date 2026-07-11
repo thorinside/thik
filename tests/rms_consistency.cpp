@@ -109,10 +109,45 @@ static bool verifyTone(int toneParam) {
     return true;
 }
 
+static bool verifyToneSweep() {
+    static const int toneValues[] = {
+        0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
+    };
+    static const double allowedRelativeDrift = 0.025;
+
+    double baseline = 0.0;
+    double worstRelativeDrift = 0.0;
+    int worstTone = 0;
+    for (int i = 0; i < (int)NS_ARRAY_SIZE(toneValues); ++i) {
+        const RmsPair rms = measureRms(0, toneValues[i]);
+        const double average = 0.5 * (rms.l + rms.r);
+        if (i == 0) baseline = average;
+        const double relativeDrift = average / baseline - 1.0;
+        if (std::fabs(relativeDrift) > std::fabs(worstRelativeDrift)) {
+            worstRelativeDrift = relativeDrift;
+            worstTone = toneValues[i];
+        }
+    }
+
+    std::printf(
+        "Tone sweep: baseline RMS %.6f, worst drift %+5.2f%% at %.1f%%\n",
+        baseline,
+        worstRelativeDrift * 100.0,
+        worstTone * 0.01);
+    if (std::fabs(worstRelativeDrift) <= allowedRelativeDrift) return true;
+
+    std::fprintf(
+        stderr,
+        "Tone RMS drift exceeds %.1f%%\n",
+        allowedRelativeDrift * 100.0);
+    return false;
+}
+
 int main() {
     bool ok = true;
     ok = verifyTone(0) && ok;
     ok = verifyTone(kDefaultTone) && ok;
     ok = verifyTone(10000) && ok;
+    ok = verifyToneSweep() && ok;
     return ok ? 0 : 1;
 }

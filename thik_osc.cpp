@@ -19,6 +19,7 @@ static const float kOutputGain = 4.35f;
 static const float kSoftClipDrive = 0.22f;
 static const float kOutputVolts = 5.0f;
 static const float kMaxPhaseIncrement = 0.45f;
+static const float kTriangleLeakPerCycle = 0.04f;
 static const float kMinThicknessLevelTrim = 0.43f;
 static const float kThicknessLevelTrimRise = 3.5f;
 static const float kMaxThicknessLevelLift = 0.14f;
@@ -103,6 +104,28 @@ static inline float softClip(float x) {
 static inline float smoothstep01(float x) {
     x = clamp01(x);
     return x * x * (3.0f - 2.0f * x);
+}
+
+static inline float toneLevelNorm(float tone) {
+    // Triangle and saw are close to orthogonal at the same phase, so dividing
+    // by their amplitude sum makes the middle of the Tone sweep substantially
+    // quieter. This table approximates constant-power normalization while
+    // preserving the existing level at Tone = 0.
+    static const float normalization[] = {
+        0.98029605f, 1.02970361f, 1.07191938f, 1.10288456f,
+        1.11902446f, 1.11825741f, 1.10068589f, 1.06856076f,
+        1.02554120f, 0.97568298f, 0.92262353f,
+    };
+
+    tone = clamp01(tone);
+    const float tablePosition = tone * 10.0f;
+    const int index = (int)tablePosition;
+    if (index >= (int)NS_ARRAY_SIZE(normalization) - 1) {
+        return normalization[NS_ARRAY_SIZE(normalization) - 1];
+    }
+    const float frac = tablePosition - (float)index;
+    return normalization[index]
+        + (normalization[index + 1] - normalization[index]) * frac;
 }
 
 static inline float thicknessCurveCorrection(float thickness) {
@@ -361,9 +384,10 @@ static inline float processVoice(VoiceState& voice,
     square -= polyBlep(halfPhase, dt);
 
     // Leaky integration turns the bandlimited square into a triangle-like
-    // component while preventing long-term DC drift from numeric error.
+    // component. Scale the leak by phase advance so its settling and level are
+    // invariant with pitch and sample rate rather than fixed in samples.
     voice.tri += square * dt * 4.0f;
-    voice.tri *= 0.9992f;
+    voice.tri *= 1.0f - kTriangleLeakPerCycle * dt;
     voice.tri = clampf(voice.tri, -1.25f, 1.25f);
     float tri = clampf(voice.tri, -1.0f, 1.0f);
 
@@ -407,7 +431,7 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
         const float thickness = alg->thicknessKnob;
         const float triGain = 0.92f - 0.55f * tone;
         const float sawGain = 0.10f + 0.82f * tone;
-        const float toneNorm = 1.0f / (triGain + sawGain + 0.0001f);
+        const float toneNorm = toneLevelNorm(tone);
 
         const float detuneDepthCents = kMaxThicknessDetuneCents * thickness;
         const float driftDepthCents = kMaxThicknessDriftCents * thickness;
@@ -417,6 +441,19 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
         const float gainDrive = kOutputGain * (2.0f / weightSum)
             * thicknessLevelTrim(thickness) * kSoftClipDrive;
 
+        const float driftRatioDepth = driftDepthCents * kCentsToLinearRatioApprox;
+        float staticDetuneMultipliers[kNumVoices];
+        float leftWeights[kNumVoices];
+        float rightWeights[kNumVoices];
+        for (int v = 1; v < kNumVoices; ++v) {
+            const VoiceState& voice = d->voices[v];
+            staticDetuneMultipliers[v] = 1.0f
+                + voice.detuneNorm * detuneDepthCents * kCentsToLinearRatioApprox;
+            const float pan = voice.panNorm * stereoWidth;
+            leftWeights[v] = sideWeight * 0.5f * (1.0f - pan);
+            rightWeights[v] = sideWeight * 0.5f * (1.0f + pan);
+        }
+
         for (int i = 0; i < numFrames; ++i) {
             const float baseHz = hasPitchCv
                 ? (baseHzNoCv * fastExp2(clampf(pitchCvFrames[i], -8.0f, 8.0f)))
@@ -425,21 +462,24 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
             float sumL = 0.0f;
             float sumR = 0.0f;
 
-            for (int v = 0; v < kNumVoices; ++v) {
+            // The root is always centered and has neither detune nor drift.
+            VoiceState& rootVoice = d->voices[0];
+            const float rootDt = clampf(baseHz * invSampleRate, 0.0f, kMaxPhaseIncrement);
+            const float rootSample = processVoice(rootVoice, rootDt, triGain, sawGain, toneNorm);
+            sumL += rootSample * 0.5f;
+            sumR += rootSample * 0.5f;
+
+            for (int v = 1; v < kNumVoices; ++v) {
                 VoiceState& voice = d->voices[v];
                 advanceDrift(voice);
 
-                const float cents = voice.detuneNorm * detuneDepthCents + voice.driftSin * driftDepthCents;
-                const float detuneMul = 1.0f + cents * kCentsToLinearRatioApprox;
+                const float detuneMul = staticDetuneMultipliers[v]
+                    + voice.driftSin * driftRatioDepth;
                 const float dt = clampf(baseHz * detuneMul * invSampleRate, 0.0f, kMaxPhaseIncrement);
                 const float sample = processVoice(voice, dt, triGain, sawGain, toneNorm);
-                const float weight = (v == 0) ? 1.0f : sideWeight;
-                const float pan = voice.panNorm * stereoWidth;
-                const float leftGain = 0.5f * (1.0f - pan);
-                const float rightGain = 0.5f * (1.0f + pan);
 
-                sumL += sample * weight * leftGain;
-                sumR += sample * weight * rightGain;
+                sumL += sample * leftWeights[v];
+                sumR += sample * rightWeights[v];
             }
 
             const float sampleL = softClip(sumL * gainDrive) * kOutputVolts;
@@ -462,7 +502,7 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
 
         const float triGain = 0.92f - 0.55f * tone;
         const float sawGain = 0.10f + 0.82f * tone;
-        const float toneNorm = 1.0f / (triGain + sawGain + 0.0001f);
+        const float toneNorm = toneLevelNorm(tone);
 
         const float baseHz = baseHzNoCv * fastExp2(pitchCv);
         const float detuneDepthCents = kMaxThicknessDetuneCents * thickness;
@@ -477,17 +517,10 @@ static void step(_NT_algorithm* self, float* busFrames, int numFramesBy4) {
         // Voice 0 is the centered root voice: no detune, pan, or drift step.
         // Keep the side-voice loop branch-free without changing the swarm shape.
         VoiceState& rootVoice = d->voices[0];
-        advanceDrift(rootVoice);
-        const float rootCents = rootVoice.detuneNorm * detuneDepthCents + rootVoice.driftSin * driftDepthCents;
-        const float rootDetuneMul = 1.0f + rootCents * kCentsToLinearRatioApprox;
-        const float rootDt = clampf(baseHz * rootDetuneMul * invSampleRate, 0.0f, kMaxPhaseIncrement);
+        const float rootDt = clampf(baseHz * invSampleRate, 0.0f, kMaxPhaseIncrement);
         const float rootSample = processVoice(rootVoice, rootDt, triGain, sawGain, toneNorm);
-        const float rootWeight = 1.0f;
-        const float rootPan = rootVoice.panNorm * stereoWidth;
-        const float rootLeftGain = 0.5f * (1.0f - rootPan);
-        const float rootRightGain = 0.5f * (1.0f + rootPan);
-        sumL += rootSample * rootWeight * rootLeftGain;
-        sumR += rootSample * rootWeight * rootRightGain;
+        sumL += rootSample * 0.5f;
+        sumR += rootSample * 0.5f;
 
         for (int v = 1; v < kNumVoices; ++v) {
             VoiceState& voice = d->voices[v];

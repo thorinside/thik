@@ -94,6 +94,19 @@ RMS consistency check across `Thickness`, including full `Tone`:
 make level-test
 ```
 
+DSP fidelity checks for triangle consistency, CV tracking, and render-path
+equivalence:
+
+```sh
+make fidelity-test
+```
+
+Optional host render benchmark:
+
+```sh
+make benchmark
+```
+
 MIDI pitch handling check:
 
 ```sh
@@ -130,8 +143,8 @@ Generated outputs are intentionally ignored by git:
 
 ## GitHub Release Workflow
 
-`.github/workflows/release.yaml` builds the plugin on `macos-latest` with the
-ARM toolchain, runs `make verify`, and packages the hardware object as:
+`.github/workflows/release.yaml` builds the plugin on Ubuntu with the ARM
+toolchain, runs `make ci-verify`, and packages the hardware object as:
 
 ```text
 programs/plug-ins/thik_osc.o
@@ -152,7 +165,8 @@ The internal design is:
 - 9 voices.
 - Deterministic detune and pan layout.
 - Slow independent drift tied to `Thickness`.
-- Triangle/saw blend tied to `Tone`.
+- Pitch- and sample-rate-stable PolyBLEP triangle derivation.
+- Constant-power triangle/saw blend tied to `Tone`.
 - MIDI note-on/off pitch override with Omni or channel-filtered input.
 - Stereo output with add/replace modes.
 - Plugin GUID set to `ThIk`.

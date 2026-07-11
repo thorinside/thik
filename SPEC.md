@@ -61,7 +61,7 @@ Tune by ear after the first build, but start with:
 - Maximum detune at full Thickness: approximately `±14 cents`
 - Drift rates: slow, independent per voice, roughly `0.05–0.25 Hz`
 - Stereo spread: deterministic alternating voice pan positions across L/R, not random hard-panning
-- Tone mapping: crossfade from mostly triangle/darker to mostly saw/brighter
+- Tone mapping: constant-power crossfade from mostly triangle/darker to mostly saw/brighter
 - Thickness mapping: coordinated increase of detune, drift depth, side-voice level, and stereo width
 
 These are implementation defaults, not exposed controls.
@@ -74,6 +74,8 @@ Use a local lightweight oscillator engine:
 - Derived triangle component per voice.
 - Per-voice phase, base detune offset, slow drift phase/rate, and pan position.
 - Sum voices into stereo accumulators.
+- Scale triangle-integrator leakage by phase advance so its response remains
+  consistent across pitch and sample rate.
 - Normalize output to avoid clipping as Thickness increases.
 - Apply gentle output gain compensation if needed so low/high Thickness feel comparable.
 

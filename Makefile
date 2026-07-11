@@ -2,6 +2,8 @@ PLUGIN_NAME = thik_osc
 SOURCES = thik_osc.cpp
 LEVEL_TEST = build/rms_consistency
 MIDI_TEST = build/midi_pitch
+FIDELITY_TEST = build/dsp_fidelity
+BENCHMARK = build/render_benchmark
 
 UNAME_S := $(shell uname -s)
 TARGET ?= hardware
@@ -107,6 +109,20 @@ $(MIDI_TEST): tests/midi_pitch.cpp $(SOURCES)
 midi-test: $(MIDI_TEST)
 	@$(MIDI_TEST)
 
+$(FIDELITY_TEST): tests/dsp_fidelity.cpp $(SOURCES)
+	@mkdir -p build
+	$(HOST_CXX) $(HOST_CXXFLAGS) $(INCLUDES) -o $@ $<
+
+fidelity-test: $(FIDELITY_TEST)
+	@$(FIDELITY_TEST)
+
+$(BENCHMARK): tests/render_benchmark.cpp $(SOURCES)
+	@mkdir -p build
+	$(HOST_CXX) $(HOST_CXXFLAGS) $(INCLUDES) -o $@ $<
+
+benchmark: $(BENCHMARK)
+	@$(BENCHMARK)
+
 verify:
 	@$(MAKE) clean
 	@$(MAKE) both
@@ -116,6 +132,7 @@ verify:
 	@$(MAKE) TARGET=test size
 	@$(MAKE) level-test
 	@$(MAKE) midi-test
+	@$(MAKE) fidelity-test
 
 ci-verify:
 	@$(MAKE) clean
@@ -124,8 +141,9 @@ ci-verify:
 	@$(MAKE) TARGET=hardware size
 	@$(MAKE) level-test
 	@$(MAKE) midi-test
+	@$(MAKE) fidelity-test
 
 clean:
 	rm -rf build $(OUTPUT_DIR)
 
-.PHONY: all hardware test both check size level-test midi-test verify ci-verify clean
+.PHONY: all hardware test both check size level-test midi-test fidelity-test benchmark verify ci-verify clean
